@@ -1,30 +1,30 @@
 import numpy as np, pandas as pd, streamlit as st
 from sklearn.ensemble import RandomForestClassifier
 
-st.set_page_config(page_title="GlobalQuake AI", page_icon="🌍", layout="centered")
+# Use layout="wide" so our CSS @media queries control exact XS/SM/MD vs LG/XL widths
+st.set_page_config(page_title="GlobalQuake AI", page_icon="🌍", layout="wide")
 
+# =========================================================================
+# 1. TWO-MODE RESPONSIVE CSS (XS/SM/MD <= 991px  |  LG/XL >= 992px)
+# =========================================================================
 st.markdown("""<style>
 .stApp {
     background: linear-gradient(rgba(9, 13, 22, 0.82), rgba(15, 23, 42, 0.90)),
                 url("https://unsplash.com");
     background-size: cover;
     background-position: center;
-    background-attachment: fixed;
     color: #f8fafc;
     font-family: 'Segoe UI', sans-serif;
 }
 .hero {
     background: linear-gradient(90deg, #1e3a8a, #0369a1, #0d9488);
-    padding: 24px;
-    border-radius: 16px;
     text-align: center;
     color: white;
-    margin-bottom: 18px;
     box-shadow: 0 12px 28px rgba(0, 0, 0, 0.6);
 }
-.hero h1 { margin: 0; font-size: 1.9rem; font-weight: 800; }
+.hero h1 { margin: 0; font-weight: 800; line-height: 1.2; }
+.hero p { margin: 8px 0 0; opacity: 0.92; }
 .sec {
-    font-size: 1.05rem;
     font-weight: 700;
     color: #38bdf8;
     margin: 10px 0;
@@ -33,28 +33,91 @@ st.markdown("""<style>
 }
 label, .stMarkdown p { color: #e2e8f0 !important; }
 [data-testid="stMetric"] {
-    background-color: rgba(30, 41, 59, 0.85);
-    padding: 14px;
+    background-color: rgba(30, 41, 59, 0.88);
     border-radius: 12px;
     border: 1px solid rgba(56, 189, 248, 0.3);
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.45);
 }
-button[data-baseweb="tab"] { font-size: 1rem; font-weight: 600; color: #94a3b8; }
+button[data-baseweb="tab"] { font-weight: 600; color: #94a3b8; }
 button[data-baseweb="tab"][aria-selected="true"] { color: #38bdf8 !important; }
 div.stButton > button {
     width: 100%;
+    min-height: 48px;
     background: linear-gradient(90deg, #f59e0b, #ea580c);
     color: white;
     border: none;
-    padding: 12px;
-    font-size: 1.1rem;
     font-weight: bold;
     border-radius: 10px;
+    box-shadow: 0 6px 18px rgba(234, 88, 12, 0.45);
 }
-.card { padding: 18px; border-radius: 12px; margin: 15px 0; box-shadow: 0 8px 20px rgba(0,0,0,0.5); }
+.card { border-radius: 12px; margin: 14px 0; box-shadow: 0 8px 20px rgba(0,0,0,0.55); }
 .g1 { background: #064e3b; border-left: 6px solid #10b981; color: #ecfdf5; }
 .g2 { background: #78350f; border-left: 6px solid #f59e0b; color: #fffbeb; }
 .g3 { background: #7f1d1d; border-left: 6px solid #ef4444; color: #fef2f2; }
+.footer-card {
+    background: rgba(30, 41, 59, 0.92);
+    padding: 16px;
+    border-radius: 12px;
+    text-align: center;
+    margin-top: 24px;
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.5);
+}
+
+/* =========================================================================
+   TYPE 1: EXTRA-SMALL, SMALL & MEDIUM SCREENS (<= 991px) — STACKED MOBILE/TABLET
+   ========================================================================= */
+@media only screen and (max-width: 991px) {
+    .stApp { background-attachment: scroll; }
+    .block-container {
+        max-width: 100% !important;
+        padding: 1.1rem 0.85rem 1.5rem 0.85rem !important;
+    }
+    .hero { padding: 18px 14px; border-radius: 12px; margin-bottom: 14px; }
+    .hero h1 { font-size: 1.4rem !important; }
+    .hero p { font-size: 0.88rem !important; }
+    .sec { font-size: 0.98rem !important; }
+    [data-baseweb="tab-list"] { overflow-x: auto; white-space: nowrap; gap: 4px; }
+    button[data-baseweb="tab"] { font-size: 0.88rem !important; padding: 8px 10px !important; }
+    /* Force single-column stacking on XS, SM, and MD */
+    [data-testid="stHorizontalBlock"] {
+        flex-direction: column !important;
+        gap: 0.6rem !important;
+    }
+    [data-testid="column"] {
+        width: 100% !important;
+        flex: 1 1 100% !important;
+        min-width: 100% !important;
+    }
+    [data-testid="stMetric"] { padding: 10px 14px !important; }
+    .card { padding: 14px; }
+    div.stButton > button { font-size: 1rem !important; padding: 11px !important; }
+}
+
+/* =========================================================================
+   TYPE 2: LARGE & EXTRA-LARGE SCREENS (>= 992px) — WIDESCREEN DESKTOP GRID
+   ========================================================================= */
+@media only screen and (min-width: 992px) {
+    .stApp { background-attachment: fixed; }
+    .block-container {
+        max-width: 1180px !important;
+        margin: 0 auto !important;
+        padding: 2rem 2.5rem 2.5rem 2.5rem !important;
+    }
+    .hero { padding: 30px 24px; border-radius: 18px; margin-bottom: 22px; }
+    .hero h1 { font-size: 2.25rem !important; }
+    .hero p { font-size: 1.08rem !important; }
+    .sec { font-size: 1.12rem !important; }
+    button[data-baseweb="tab"] { font-size: 1.05rem !important; padding: 10px 18px !important; }
+    /* Side-by-side multi-column layout on LG and XL */
+    [data-testid="stHorizontalBlock"] {
+        flex-direction: row !important;
+        gap: 1.5rem !important;
+    }
+    [data-testid="stMetric"] { padding: 16px 18px !important; }
+    .card { padding: 20px 24px; }
+    div.stButton > button { font-size: 1.15rem !important; padding: 14px !important; }
+}
 </style>""", unsafe_allow_html=True)
 
 @st.cache_resource
@@ -152,36 +215,3 @@ with tab1:
             "haz": haz, "mag": mag, "soil": soil, "age": age,
             "area": area, "ht": ht, "flr": flr, "fnd": fnd, "roof": roof
         }])
-        pred = int(model.predict(inp).item())
-        p1, p2, p3 = model.predict_proba(inp).ravel()
-        if pred == 1:
-            st.markdown('<div class="card g1"><h3>🟢 Grade 1: Low Damage</h3><p>Minor hairline cracks expected. Safe for occupancy.</p></div>', unsafe_allow_html=True)
-        elif pred == 2:
-            st.markdown('<div class="card g2"><h3>🟡 Grade 2: Medium Damage</h3><p>Moderate structural distress. Engineering inspection required.</p></div>', unsafe_allow_html=True)
-        else:
-            st.markdown('<div class="card g3"><h3>🔴 Grade 3: Severe Damage</h3><p>High collapse risk. Immediate evacuation required.</p></div>', unsafe_allow_html=True)
-        m1, m2, m3 = st.columns(3)
-        m1.metric("🟢 Low (Grade 1)", f"{p1*100:.1f}%")
-        m2.metric("🟡 Medium (Grade 2)", f"{p2*100:.1f}%")
-        m3.metric("🔴 Severe (Grade 3)", f"{p3*100:.1f}%")
-        st.bar_chart(pd.DataFrame({"Probability %": [p1*100, p2*100, p3*100]}, index=["Grade 1", "Grade 2", "Grade 3"]))
-
-with tab2:
-    st.markdown('<div class="sec">📡 Live Global Earthquakes (Past 7 Days — USGS)</div>', unsafe_allow_html=True)
-    qdf = fetch_global_quakes()
-    st.map(qdf[["lat", "lon"]])
-    st.dataframe(qdf[["Location", "Magnitude", "Depth (km)"]], use_container_width=True)
-
-with tab3:
-    st.markdown('<div class="sec">📊 Feature Importance & Project Info</div>', unsafe_allow_html=True)
-    labels = ["Seismic Hazard", "Magnitude", "Soil Type", "Age", "Area %", "Height %", "Floors", "Foundation", "Roof"]
-    st.bar_chart(pd.DataFrame({"Importance": model.feature_importances_}, index=labels).sort_values("Importance", ascending=False))
-    st.info("GlobalQuake AI combines 2015 Nepal Earthquake structural data with global seismic hazard zones, soil amplification, and material typologies.")
-
-st.markdown("""
-<div style="background: rgba(30, 41, 59, 0.9); padding: 16px; border-radius: 12px; text-align: center; margin-top: 24px; border: 1px solid rgba(148, 163, 184, 0.25); box-shadow: 0 8px 20px rgba(0,0,0,0.5);">
-    <h4 style="margin: 0; color: #38bdf8;">🌍 GlobalQuake AI</h4>
-    <p style="margin: 6px 0 0; font-size: 0.9rem; color: #cbd5e1;">Built with Python, Scikit-Learn & Streamlit</p>
-</div>
-""", unsafe_allow_html=True)
-# END OF FILE
