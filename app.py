@@ -133,3 +133,4 @@ def get_building_html(floors, roof_code, fnd_code, age, grade, default_mode="m7"
         f'<div style="background:#0f172a;padding:14px;border-radius:14px;border:1px solid #334155;color:white;font-family:sans-serif;text-align:center;box-shadow:0 10px 25px rgba(0,0,0,0.6);">'
         f'<div style="font-weight:700;color:#38bdf8;margin-bottom:8px;">🏗️ Custom Building Seismic Animation ({floors} Floors | Grade {grade})</div>'
         f'{controls}'
+    )
