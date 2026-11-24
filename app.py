@@ -94,19 +94,15 @@ def load_global_model():
     geo1 = rng.randint(0, 31, n_samples)
     geo2 = rng.randint(0, 1428, n_samples)
     geo3 = rng.randint(0, 12568, n_samples)
-    # Seismic hazard zone intensity (1 = Low/Moderate, 2 = High, 3 = Extreme Ring of Fire / Himalayan)
     zone_hazard = rng.choice([1, 2, 3], size=n_samples, p=[0.25, 0.40, 0.35])
     magnitude = rng.uniform(4.5, 8.8, n_samples)
-    # Soil type: 0 = Hard Bedrock, 1 = Stiff Soil, 2 = Soft Clay / Liquefaction Zone
     soil = rng.randint(0, 3, n_samples)
 
     age = rng.randint(0, 120, n_samples)
     area = rng.randint(1, 50, n_samples)
     height = rng.randint(2, 25, n_samples)
     floors = rng.randint(1, 8, n_samples)
-    # Foundation: 0 = Reinforced Concrete, 1 = Cement/Brick, 2 = Bamboo/Timber, 3 = Mud Mortar-Stone
     foundation = rng.randint(0, 4, n_samples)
-    # Roof: 0 = RCC Slab, 1 = Light Metal Sheet, 2 = Heavy Timber/Mud
     roof = rng.randint(0, 3, n_samples)
 
     risk_score = (
@@ -159,10 +155,10 @@ def fetch_live_earthquakes():
             coords = feat["geometry"]["coordinates"]
             rows.append({
                 "Location": props.get("place", "Unknown"),
-                "Magnitude (Mw)": round(props.get("mag", 0), 1),
-                "Depth (km)": round(coords[2], 1),
-                "lat": coords[1],
-                "lon": coords[0]
+                "Magnitude (Mw)": round(float(props.get("mag", 0)), 1),
+                "Depth (km)": round(float(coords[2]), 1),
+                "lat": float(coords[1]),
+                "lon": float(coords[0])
             })
         return pd.DataFrame(rows)
     except Exception:
@@ -182,7 +178,6 @@ st.markdown("""
 tab1, tab2, tab3 = st.tabs(["🔍 Damage Predictor", "🌍 Global Seismic Feed", "📊 Model Insights & Info"])
 
 with tab1:
-    # Global Region Selector + Existing Geo IDs
     st.markdown('<div class="section-header">🌐 Global Seismic Zone & Location IDs</div>', unsafe_allow_html=True)
 
     global_zones = {
@@ -248,6 +243,13 @@ with tab1:
             columns=feature_names
         )
 
-        prediction = model.predict(input_data)[0]
+        prediction = int(model.predict(input_data)[0])
         probabilities = model.predict_proba(input_data)[0]
 
+        if prediction == 1:
+            st.markdown("""
+                <div class="result-card grade-1">
+                    <h3 style="margin:0;">🟢 Grade 1: Low Damage</h3>
+                    <p style="margin:8px 0 0;">Minor hairline plaster cracks expected. Structure remains safe for occupancy and minor repair.</p>
+                </div>
+            """, unsafe_allow_html=True)
