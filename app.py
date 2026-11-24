@@ -3,9 +3,6 @@ from sklearn.ensemble import RandomForestClassifier
 
 st.set_page_config(page_title="GlobalQuake AI", page_icon="🌍", layout="centered")
 
-# ==========================================
-# 1. CSS STYLING & BACKGROUND IMAGE
-# ==========================================
 st.markdown("""<style>
 .stApp {
     background: linear-gradient(rgba(9, 13, 22, 0.82), rgba(15, 23, 42, 0.90)),
@@ -53,11 +50,6 @@ div.stButton > button {
     font-size: 1.1rem;
     font-weight: bold;
     border-radius: 10px;
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-div.stButton > button:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 20px rgba(234, 88, 12, 0.5);
 }
 .card { padding: 18px; border-radius: 12px; margin: 15px 0; box-shadow: 0 8px 20px rgba(0,0,0,0.5); }
 .g1 { background: #064e3b; border-left: 6px solid #10b981; color: #ecfdf5; }
@@ -66,17 +58,39 @@ div.stButton > button:hover {
 </style>""", unsafe_allow_html=True)
 
 @st.cache_resource
-def load_model():
+def load_calibrated_model():
     rng = np.random.RandomState(42)
-    n = 5000
-    g1, g2, g3 = rng.randint(0, 31, n), rng.randint(0, 1428, n), rng.randint(0, 12568, n)
-    haz, mag, soil = rng.randint(1, 4, n), rng.uniform(4.5, 8.8, n), rng.randint(0, 3, n)
-    age, area, ht, flr = rng.randint(0, 120, n), rng.randint(1, 50, n), rng.randint(2, 25, n), rng.randint(1, 8, n)
-    fnd, roof = rng.randint(0, 4, n), rng.randint(0, 3, n)
-    risk = (mag - 5.0)*0.85 + (haz - 1)*0.45 + (soil == 2)*0.75 + (soil == 1)*0.3 + (g1 > 15)*0.35 + (age > 25)*0.55 + (age > 55)*0.55 + (flr >= 3)*0.45 + (ht/(area+1) > 1.2)*0.4 + (fnd == 3)*1.15 + (fnd == 2)*0.55 + (fnd == 1)*0.25 + (roof == 2)*0.75 + (roof == 1)*0.3 + rng.normal(0, 0.35, n)
-    y = np.where(risk < 2.2, 1, np.where(risk < 4.1, 2, 3))
-    X = pd.DataFrame({"g1": g1, "g2": g2, "g3": g3, "haz": haz, "mag": mag, "soil": soil, "age": age, "area": area, "ht": ht, "flr": flr, "fnd": fnd, "roof": roof})
-    return RandomForestClassifier(n_estimators=50, random_state=42).fit(X, y)
+    n = 8000
+    haz = rng.randint(1, 4, n)
+    mag = rng.uniform(4.5, 9.0, n)
+    soil = rng.randint(0, 3, n)
+    age = rng.randint(0, 150, n)
+    area = rng.randint(1, 100, n)
+    ht = rng.randint(2, 32, n)
+    flr = rng.randint(1, 10, n)
+    fnd = rng.randint(0, 4, n)
+    roof = rng.randint(0, 3, n)
+
+    risk = (
+        (mag - 4.5) * 0.70 +
+        (haz - 1) * 0.35 +
+        soil * 0.45 +
+        (age / 50.0) * 0.65 +
+        (flr / 4.0) * 0.45 +
+        (ht / (area + 5.0)) * 0.35 +
+        fnd * 0.65 +
+        roof * 0.45 +
+        rng.normal(0, 0.25, n)
+    )
+    y = np.where(risk < 3.2, 1, np.where(risk < 5.3, 2, 3))
+
+    X = pd.DataFrame({
+        "haz": haz, "mag": mag, "soil": soil, "age": age,
+        "area": area, "ht": ht, "flr": flr, "fnd": fnd, "roof": roof
+    })
+    clf = RandomForestClassifier(n_estimators=80, max_depth=12, random_state=42)
+    clf.fit(X, y)
+    return clf
 
 @st.cache_data(ttl=600)
 def fetch_global_quakes():
@@ -86,7 +100,6 @@ def fetch_global_quakes():
         clean.columns = ["Location", "Magnitude", "Depth (km)", "lat", "lon"]
         return clean.dropna()
     except Exception:
-        # Reliable global seismic reference fallback if live feed is blocked
         return pd.DataFrame([
             {"Location": "Kathmandu Valley, Nepal", "Magnitude": 7.8, "Depth (km)": 8.2, "lat": 27.71, "lon": 85.32},
             {"Location": "Sendai Coast, Honshu, Japan", "Magnitude": 7.4, "Depth (km)": 35.0, "lat": 38.27, "lon": 141.02},
@@ -98,7 +111,7 @@ def fetch_global_quakes():
             {"Location": "Central Apennines, Italy", "Magnitude": 6.2, "Depth (km)": 9.5, "lat": 42.79, "lon": 13.10}
         ])
 
-model = load_model()
+model = load_calibrated_model()
 st.markdown('<div class="hero"><h1>🌍 GlobalQuake AI: Damage Predictor</h1><p>Worldwide Seismic Vulnerability & Building Risk Assessment</p></div>', unsafe_allow_html=True)
 
 tab1, tab2, tab3 = st.tabs(["🔍 Damage Predictor", "🌍 Global Seismic Feed", "📊 Insights & Info"])
@@ -120,7 +133,7 @@ with tab1:
         g1 = st.number_input("Region ID (Geo 1: 0–30)", 0, 30, dg1)
         g2 = st.number_input("District ID (Geo 2: 0–1427)", 0, 1427, dg2)
         g3 = st.number_input("Municipality ID (Geo 3: 0–12567)", 0, 12567, dg3)
-        mag = st.slider("Earthquake Magnitude (Mw)", 4.5, 9.0, 6.8, 0.1)
+        mag = st.slider("Earthquake Magnitude (Mw)", 4.5, 9.0, 6.2, 0.1)
         soils = {"Soft Alluvial / Liquefaction Zone": 2, "Stiff Sedimentary Soil": 1, "Hard Bedrock / Basalt": 0}
         soil = soils[st.selectbox("Ground / Soil Type", list(soils.keys()))]
     with c2:
@@ -129,13 +142,16 @@ with tab1:
         fnd = fnds[st.selectbox("Foundation & Structure", list(fnds.keys()))]
         roofs = {"Heavy Timber / Mud / Tile": 2, "Light Metal Sheet / Bamboo": 1, "Reinforced Concrete (RCC) Slab": 0}
         roof = roofs[st.selectbox("Roof Type", list(roofs.keys()))]
-        age = st.slider("Building Age (Years)", 0, 200, 25)
+        age = st.slider("Building Age (Years)", 0, 200, 20)
         flr = st.slider("Number of Floors", 1, 9, 2)
-        area = st.slider("Footprint Area %", 1, 100, 8)
+        area = st.slider("Footprint Area %", 1, 100, 12)
         ht = st.slider("Height %", 2, 32, 6)
 
     if st.button("Analyze Global Structural Risk"):
-        inp = pd.DataFrame([{"g1": g1, "g2": g2, "g3": g3, "haz": haz, "mag": mag, "soil": soil, "age": age, "area": area, "ht": ht, "flr": flr, "fnd": fnd, "roof": roof}])
+        inp = pd.DataFrame([{
+            "haz": haz, "mag": mag, "soil": soil, "age": age,
+            "area": area, "ht": ht, "flr": flr, "fnd": fnd, "roof": roof
+        }])
         pred = int(model.predict(inp).item())
         p1, p2, p3 = model.predict_proba(inp).ravel()
         if pred == 1:
@@ -158,13 +174,10 @@ with tab2:
 
 with tab3:
     st.markdown('<div class="sec">📊 Feature Importance & Project Info</div>', unsafe_allow_html=True)
-    labels = ["Region ID", "District ID", "Municipality ID", "Seismic Hazard", "Magnitude", "Soil Type", "Age", "Area %", "Height %", "Floors", "Foundation", "Roof"]
+    labels = ["Seismic Hazard", "Magnitude", "Soil Type", "Age", "Area %", "Height %", "Floors", "Foundation", "Roof"]
     st.bar_chart(pd.DataFrame({"Importance": model.feature_importances_}, index=labels).sort_values("Importance", ascending=False))
     st.info("GlobalQuake AI combines 2015 Nepal Earthquake structural data with global seismic hazard zones, soil amplification, and material typologies.")
 
-# ==========================================
-# 2. CUSTOM HTML FOOTER
-# ==========================================
 st.markdown("""
 <div style="background: rgba(30, 41, 59, 0.9); padding: 16px; border-radius: 12px; text-align: center; margin-top: 24px; border: 1px solid rgba(148, 163, 184, 0.25); box-shadow: 0 8px 20px rgba(0,0,0,0.5);">
     <h4 style="margin: 0; color: #38bdf8;">🌍 GlobalQuake AI</h4>
