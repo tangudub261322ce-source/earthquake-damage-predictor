@@ -1,11 +1,16 @@
-import streamlit as st
-import pandas as pd
+import json
+import urllib.request
 import numpy as np
-import requests
+import pandas as pd
+import streamlit as st
 from sklearn.ensemble import RandomForestClassifier
 
 # 1. Page Configuration
-st.set_page_config(page_title="GlobalQuake AI | Worldwide Building Damage Predictor", page_icon="🌍", layout="centered")
+st.set_page_config(
+    page_title="GlobalQuake AI | Worldwide Building Damage Predictor",
+    page_icon="🌍",
+    layout="centered"
+)
 
 # 2. Custom CSS Styling
 st.markdown("""
@@ -133,22 +138,31 @@ def load_global_model():
     ]
 
     X = pd.DataFrame({
-        'geo_level_1_id': geo1, 'geo_level_2_id': geo2, 'geo_level_3_id': geo3,
-        'zone_hazard': zone_hazard, 'magnitude': magnitude, 'soil_code': soil,
-        'age': age, 'area_percentage': area, 'height_percentage': height,
-        'count_floors_pre_eq': floors, 'foundation_code': foundation, 'roof_code': roof
+        'geo_level_1_id': geo1,
+        'geo_level_2_id': geo2,
+        'geo_level_3_id': geo3,
+        'zone_hazard': zone_hazard,
+        'magnitude': magnitude,
+        'soil_code': soil,
+        'age': age,
+        'area_percentage': area,
+        'height_percentage': height,
+        'count_floors_pre_eq': floors,
+        'foundation_code': foundation,
+        'roof_code': roof
     })
 
     clf = RandomForestClassifier(n_estimators=70, random_state=42)
     clf.fit(X, damage_grade)
     return clf, feature_names
 
-# Fetch live global earthquakes from USGS (past 7 days, M4.5+)
+# Fetch live global earthquakes from USGS (past 7 days, M4.5+) using built-in urllib
 @st.cache_data(ttl=1800)
 def fetch_live_earthquakes():
     try:
         url = "https://usgs.gov"
-        res = requests.get(url, timeout=6).json()
+        with urllib.request.urlopen(url, timeout=8) as response:
+            res = json.loads(response.read().decode("utf-8"))
         rows = []
         for feat in res.get("features", [])[:50]:
             props = feat["properties"]
@@ -244,12 +258,9 @@ with tab1:
         )
 
         prediction = int(model.predict(input_data)[0])
-        probabilities = model.predict_proba(input_data)[0]
+        probs = model.predict_proba(input_data)[0]
 
         if prediction == 1:
             st.markdown("""
                 <div class="result-card grade-1">
                     <h3 style="margin:0;">🟢 Grade 1: Low Damage</h3>
-                    <p style="margin:8px 0 0;">Minor hairline plaster cracks expected. Structure remains safe for occupancy and minor repair.</p>
-                </div>
-            """, unsafe_allow_html=True)
