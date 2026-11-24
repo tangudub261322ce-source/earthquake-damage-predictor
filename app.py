@@ -5,11 +5,15 @@ from sklearn.ensemble import RandomForestClassifier
 st.set_page_config(page_title="GlobalQuake AI", page_icon="🌍", layout="centered")
 
 # ==========================================
-# 1. CSS STYLING (Always goes at the top)
+# 1. CSS STYLING & BACKGROUND IMAGE
 # ==========================================
 st.markdown("""<style>
 .stApp {
-    background: linear-gradient(135deg, #090d16, #111827, #0f172a);
+    background: linear-gradient(rgba(9, 13, 22, 0.82), rgba(15, 23, 42, 0.90)),
+                url("https://unsplash.com");
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
     color: #f8fafc;
     font-family: 'Segoe UI', sans-serif;
 }
@@ -75,12 +79,22 @@ def load_model():
     X = pd.DataFrame({"g1": g1, "g2": g2, "g3": g3, "haz": haz, "mag": mag, "soil": soil, "age": age, "area": area, "ht": ht, "flr": flr, "fnd": fnd, "roof": roof})
     return RandomForestClassifier(n_estimators=50, random_state=42).fit(X, y)
 
-@st.cache_data(ttl=1800)
+@st.cache_data(ttl=600)
 def get_quakes():
     try:
         url = "https://usgs.gov"
-        data = json.loads(urllib.request.urlopen(url, timeout=8).read().decode())
-        rows = [{"Location": f["properties"]["place"], "Magnitude": round(float(f["properties"]["mag"]), 1), "Depth (km)": round(float(f["geometry"]["coordinates"][2]), 1), "lat": float(f["geometry"]["coordinates"][1]), "lon": float(f["geometry"]["coordinates"][0])} for f in data.get("features", [])[:40]]
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        data = json.loads(urllib.request.urlopen(req, timeout=10).read().decode("utf-8"))
+        rows = []
+        for f in data.get("features", [])[:40]:
+            lon, lat, depth = f["geometry"]["coordinates"][:3]
+            rows.append({
+                "Location": f["properties"]["place"],
+                "Magnitude": round(float(f["properties"]["mag"]), 1),
+                "Depth (km)": round(float(depth), 1),
+                "lat": float(lat),
+                "lon": float(lon)
+            })
         return pd.DataFrame(rows)
     except Exception:
         return pd.DataFrame()
@@ -153,7 +167,7 @@ with tab3:
     st.info("GlobalQuake AI combines 2015 Nepal Earthquake structural data with global seismic hazard zones, soil amplification, and material typologies.")
 
 # ==========================================
-# 2. CUSTOM HTML FOOTER (Goes at the bottom)
+# 2. CUSTOM HTML FOOTER
 # ==========================================
 st.markdown("""
 <div style="background: rgba(30, 41, 59, 0.9); padding: 16px; border-radius: 12px; text-align: center; margin-top: 24px; border: 1px solid rgba(148, 163, 184, 0.25); box-shadow: 0 8px 20px rgba(0,0,0,0.5);">
