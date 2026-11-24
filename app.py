@@ -4,14 +4,59 @@ from sklearn.ensemble import RandomForestClassifier
 
 st.set_page_config(page_title="GlobalQuake AI", page_icon="🌍", layout="centered")
 
+# ==========================================
+# 1. CSS STYLING (Always goes at the top)
+# ==========================================
 st.markdown("""<style>
-.stApp { background: linear-gradient(135deg, #090d16, #111827, #0f172a); color: #f8fafc; font-family: 'Segoe UI', sans-serif; }
-.hero { background: linear-gradient(90deg, #1e3a8a, #0369a1, #0d9488); padding: 24px; border-radius: 16px; text-align: center; color: white; margin-bottom: 18px; }
+.stApp {
+    background: linear-gradient(135deg, #090d16, #111827, #0f172a);
+    color: #f8fafc;
+    font-family: 'Segoe UI', sans-serif;
+}
+.hero {
+    background: linear-gradient(90deg, #1e3a8a, #0369a1, #0d9488);
+    padding: 24px;
+    border-radius: 16px;
+    text-align: center;
+    color: white;
+    margin-bottom: 18px;
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.6);
+}
 .hero h1 { margin: 0; font-size: 1.9rem; font-weight: 800; }
-.sec { font-size: 1.05rem; font-weight: 700; color: #38bdf8; margin: 10px 0; border-bottom: 1px solid rgba(56,189,248,0.3); padding-bottom: 4px; }
+.sec {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #38bdf8;
+    margin: 10px 0;
+    border-bottom: 1px solid rgba(56,189,248,0.3);
+    padding-bottom: 4px;
+}
 label, .stMarkdown p { color: #e2e8f0 !important; }
-div.stButton > button { width: 100%; background: linear-gradient(90deg, #f59e0b, #ea580c); color: white; border: none; padding: 12px; font-size: 1.1rem; font-weight: bold; border-radius: 10px; }
-.card { padding: 18px; border-radius: 12px; margin: 15px 0; }
+[data-testid="stMetric"] {
+    background-color: rgba(30, 41, 59, 0.85);
+    padding: 14px;
+    border-radius: 12px;
+    border: 1px solid rgba(56, 189, 248, 0.3);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+}
+button[data-baseweb="tab"] { font-size: 1rem; font-weight: 600; color: #94a3b8; }
+button[data-baseweb="tab"][aria-selected="true"] { color: #38bdf8 !important; }
+div.stButton > button {
+    width: 100%;
+    background: linear-gradient(90deg, #f59e0b, #ea580c);
+    color: white;
+    border: none;
+    padding: 12px;
+    font-size: 1.1rem;
+    font-weight: bold;
+    border-radius: 10px;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+div.stButton > button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(234, 88, 12, 0.5);
+}
+.card { padding: 18px; border-radius: 12px; margin: 15px 0; box-shadow: 0 8px 20px rgba(0,0,0,0.5); }
 .g1 { background: #064e3b; border-left: 6px solid #10b981; color: #ecfdf5; }
 .g2 { background: #78350f; border-left: 6px solid #f59e0b; color: #fffbeb; }
 .g3 { background: #7f1d1d; border-left: 6px solid #ef4444; color: #fef2f2; }
@@ -106,4 +151,14 @@ with tab3:
     labels = ["Region ID", "District ID", "Municipality ID", "Seismic Hazard", "Magnitude", "Soil Type", "Age", "Area %", "Height %", "Floors", "Foundation", "Roof"]
     st.bar_chart(pd.DataFrame({"Importance": model.feature_importances_}, index=labels).sort_values("Importance", ascending=False))
     st.info("GlobalQuake AI combines 2015 Nepal Earthquake structural data with global seismic hazard zones, soil amplification, and material typologies.")
+
+# ==========================================
+# 2. CUSTOM HTML FOOTER (Goes at the bottom)
+# ==========================================
+st.markdown("""
+<div style="background: rgba(30, 41, 59, 0.9); padding: 16px; border-radius: 12px; text-align: center; margin-top: 24px; border: 1px solid rgba(148, 163, 184, 0.25); box-shadow: 0 8px 20px rgba(0,0,0,0.5);">
+    <h4 style="margin: 0; color: #38bdf8;">🌍 GlobalQuake AI</h4>
+    <p style="margin: 6px 0 0; font-size: 0.9rem; color: #cbd5e1;">Built with Python, Scikit-Learn & Streamlit</p>
+</div>
+""", unsafe_allow_html=True)
 # END OF FILE
