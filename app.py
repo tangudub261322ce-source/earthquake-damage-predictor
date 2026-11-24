@@ -1,218 +1,109 @@
-import json
-import urllib.request
-import numpy as np
-import pandas as pd
-import streamlit as st
+import json, urllib.request
+import numpy as np, pandas as pd, streamlit as st
 from sklearn.ensemble import RandomForestClassifier
 
-st.set_page_config(page_title="GlobalQuake AI | Building Damage Predictor", page_icon="🌍", layout="centered")
+st.set_page_config(page_title="GlobalQuake AI", page_icon="🌍", layout="centered")
 
-css_code = (
-    "<style>"
-    ".stApp { background: linear-gradient(135deg, #090d16 0%, #111827 50%, #0f172a 100%); color: #f8fafc; font-family: 'Segoe UI', sans-serif; }"
-    ".hero-banner { background: linear-gradient(90deg, #1e3a8a 0%, #0369a1 50%, #0d9488 100%); padding: 26px 20px; border-radius: 16px; text-align: center; color: white; box-shadow: 0 10px 25px rgba(0,0,0,0.45); margin-bottom: 20px; }"
-    ".hero-banner h1 { margin: 0; font-size: 2rem; font-weight: 800; }"
-    ".hero-banner p { margin: 8px 0 0; font-size: 1rem; opacity: 0.92; }"
-    ".section-header { font-size: 1.05rem; font-weight: 700; color: #38bdf8; margin: 10px 0; border-bottom: 1px solid rgba(56,189,248,0.3); padding-bottom: 4px; }"
-    "label, .stMarkdown p { color: #e2e8f0 !important; font-weight: 500; }"
-    "div.stButton > button { width: 100%; background: linear-gradient(90deg, #f59e0b 0%, #ea580c 100%); color: white; border: none; padding: 14px 24px; font-size: 1.1rem; font-weight: bold; border-radius: 12px; }"
-    ".result-card { padding: 20px; border-radius: 14px; margin: 18px 0; box-shadow: 0 8px 25px rgba(0,0,0,0.35); }"
-    ".grade-1 { background-color: #064e3b; border-left: 7px solid #10b981; color: #ecfdf5; }"
-    ".grade-2 { background-color: #78350f; border-left: 7px solid #f59e0b; color: #fffbeb; }"
-    ".grade-3 { background-color: #7f1d1d; border-left: 7px solid #ef4444; color: #fef2f2; }"
-    ".info-box { background: rgba(30,41,59,0.85); border: 1px solid rgba(148,163,184,0.2); padding: 18px; border-radius: 12px; }"
-    "</style>"
-)
-st.markdown(css_code, unsafe_allow_html=True)
+st.markdown("""<style>
+.stApp { background: linear-gradient(135deg, #090d16, #111827, #0f172a); color: #f8fafc; font-family: 'Segoe UI', sans-serif; }
+.hero { background: linear-gradient(90deg, #1e3a8a, #0369a1, #0d9488); padding: 24px; border-radius: 16px; text-align: center; color: white; margin-bottom: 18px; }
+.hero h1 { margin: 0; font-size: 1.9rem; font-weight: 800; }
+.sec { font-size: 1.05rem; font-weight: 700; color: #38bdf8; margin: 10px 0; border-bottom: 1px solid rgba(56,189,248,0.3); padding-bottom: 4px; }
+label, .stMarkdown p { color: #e2e8f0 !important; }
+div.stButton > button { width: 100%; background: linear-gradient(90deg, #f59e0b, #ea580c); color: white; border: none; padding: 12px; font-size: 1.1rem; font-weight: bold; border-radius: 10px; }
+.card { padding: 18px; border-radius: 12px; margin: 15px 0; }
+.g1 { background: #064e3b; border-left: 6px solid #10b981; color: #ecfdf5; }
+.g2 { background: #78350f; border-left: 6px solid #f59e0b; color: #fffbeb; }
+.g3 { background: #7f1d1d; border-left: 6px solid #ef4444; color: #fef2f2; }
+</style>""", unsafe_allow_html=True)
 
 @st.cache_resource
-def load_global_model():
+def load_model():
     rng = np.random.RandomState(42)
-    n_samples = 6000
-
-    geo1 = rng.randint(0, 31, n_samples)
-    geo2 = rng.randint(0, 1428, n_samples)
-    geo3 = rng.randint(0, 12568, n_samples)
-    zone_hazard = rng.randint(1, 4, n_samples)
-    magnitude = rng.uniform(4.5, 8.8, n_samples)
-    soil = rng.randint(0, 3, n_samples)
-    age = rng.randint(0, 120, n_samples)
-    area = rng.randint(1, 50, n_samples)
-    height = rng.randint(2, 25, n_samples)
-    floors = rng.randint(1, 8, n_samples)
-    foundation = rng.randint(0, 4, n_samples)
-    roof = rng.randint(0, 3, n_samples)
-
-    risk_score = (
-        (magnitude - 5.0) * 0.85
-        + (zone_hazard - 1) * 0.45
-        + (soil == 2).astype(int) * 0.75
-        + (soil == 1).astype(int) * 0.30
-        + (geo1 > 15).astype(int) * 0.35
-        + (age > 25).astype(int) * 0.55
-        + (age > 55).astype(int) * 0.55
-        + (floors >= 3).astype(int) * 0.45
-        + (height / (area + 1) > 1.2).astype(int) * 0.40
-        + (foundation == 3).astype(int) * 1.15
-        + (foundation == 2).astype(int) * 0.55
-        + (foundation == 1).astype(int) * 0.25
-        + (roof == 2).astype(int) * 0.75
-        + (roof == 1).astype(int) * 0.30
-        + rng.normal(0, 0.35, n_samples)
-    )
-
-    damage_grade = np.where(risk_score < 2.2, 1, np.where(risk_score < 4.1, 2, 3))
-
-    X = pd.DataFrame({
-        "geo_level_1_id": geo1,
-        "geo_level_2_id": geo2,
-        "geo_level_3_id": geo3,
-        "zone_hazard": zone_hazard,
-        "magnitude": magnitude,
-        "soil_code": soil,
-        "age": age,
-        "area_percentage": area,
-        "height_percentage": height,
-        "count_floors_pre_eq": floors,
-        "foundation_code": foundation,
-        "roof_code": roof,
-    })
-
-    clf = RandomForestClassifier(n_estimators=60, random_state=42)
-    clf.fit(X, damage_grade)
-    return clf
+    n = 5000
+    g1, g2, g3 = rng.randint(0, 31, n), rng.randint(0, 1428, n), rng.randint(0, 12568, n)
+    haz, mag, soil = rng.randint(1, 4, n), rng.uniform(4.5, 8.8, n), rng.randint(0, 3, n)
+    age, area, ht, flr = rng.randint(0, 120, n), rng.randint(1, 50, n), rng.randint(2, 25, n), rng.randint(1, 8, n)
+    fnd, roof = rng.randint(0, 4, n), rng.randint(0, 3, n)
+    risk = (mag - 5.0)*0.85 + (haz - 1)*0.45 + (soil == 2)*0.75 + (soil == 1)*0.3 + (g1 > 15)*0.35 + (age > 25)*0.55 + (age > 55)*0.55 + (flr >= 3)*0.45 + (ht/(area+1) > 1.2)*0.4 + (fnd == 3)*1.15 + (fnd == 2)*0.55 + (fnd == 1)*0.25 + (roof == 2)*0.75 + (roof == 1)*0.3 + rng.normal(0, 0.35, n)
+    y = np.where(risk < 2.2, 1, np.where(risk < 4.1, 2, 3))
+    X = pd.DataFrame({"g1": g1, "g2": g2, "g3": g3, "haz": haz, "mag": mag, "soil": soil, "age": age, "area": area, "ht": ht, "flr": flr, "fnd": fnd, "roof": roof})
+    return RandomForestClassifier(n_estimators=50, random_state=42).fit(X, y)
 
 @st.cache_data(ttl=1800)
-def fetch_live_earthquakes():
+def get_quakes():
     try:
         url = "https://usgs.gov"
-        with urllib.request.urlopen(url, timeout=8) as response:
-            res = json.loads(response.read().decode("utf-8"))
-        rows = []
-        for feat in res.get("features", [])[:50]:
-            props = feat["properties"]
-            lon, lat, depth = feat["geometry"]["coordinates"]
-            rows.append({
-                "Location": props.get("place", "Unknown"),
-                "Magnitude (Mw)": round(float(props.get("mag", 0)), 1),
-                "Depth (km)": round(float(depth), 1),
-                "lat": float(lat),
-                "lon": float(lon),
-            })
+        data = json.loads(urllib.request.urlopen(url, timeout=8).read().decode())
+        rows = [{"Location": f["properties"]["place"], "Magnitude": round(float(f["properties"]["mag"]), 1), "Depth (km)": round(float(f["geometry"]["coordinates"][2]), 1), "lat": float(f["geometry"]["coordinates"][1]), "lon": float(f["geometry"]["coordinates"][0])} for f in data.get("features", [])[:40]]
         return pd.DataFrame(rows)
     except Exception:
         return pd.DataFrame()
 
-model = load_global_model()
+model = load_model()
+st.markdown('<div class="hero"><h1>🌍 GlobalQuake AI: Damage Predictor</h1><p>Worldwide Seismic Vulnerability & Building Risk Assessment</p></div>', unsafe_allow_html=True)
 
-st.markdown(
-    '<div class="hero-banner">'
-    '<h1>🌍 GlobalQuake AI: Worldwide Damage Predictor</h1>'
-    '<p>Multi-Region Seismic Vulnerability & Building Risk Assessment System</p>'
-    '</div>',
-    unsafe_allow_html=True,
-)
-
-tab1, tab2, tab3 = st.tabs(["🔍 Damage Predictor", "🌍 Global Seismic Feed", "📊 Model Insights & Info"])
+tab1, tab2, tab3 = st.tabs(["🔍 Damage Predictor", "🌍 Global Seismic Feed", "📊 Insights & Info"])
 
 with tab1:
-    st.markdown('<div class="section-header">🌐 Global Seismic Zone & Location IDs</div>', unsafe_allow_html=True)
-
-    global_zones = {
-        "Himalayan Belt (India / Nepal / Bhutan) — Extreme Hazard": (3, 17, 450, 3000),
-        "Pacific Ring of Fire (Japan / Indonesia / Philippines) — Extreme Hazard": (3, 24, 890, 7400),
-        "Andean Belt (Chile / Peru / Ecuador) — Extreme Hazard": (3, 22, 760, 6100),
-        "Anatolian & Zagros Faults (Turkey / Iran) — High Hazard": (2, 19, 610, 4800),
-        "San Andreas & Cascadia (USA / Canada / Mexico) — High Hazard": (2, 14, 380, 2900),
-        "Mediterranean Belt (Italy / Greece) — Moderate-High Hazard": (2, 11, 290, 2100),
-        "Custom Location (Use Manual Region/District IDs Below)": (2, 17, 450, 3000),
+    zones = {
+        "Himalayan Belt (India / Nepal) — Extreme Hazard": (3, 17, 450, 3000),
+        "Pacific Ring of Fire (Japan / Indonesia) — Extreme Hazard": (3, 24, 890, 7400),
+        "Andean Belt (Chile / Peru) — Extreme Hazard": (3, 22, 760, 6100),
+        "Anatolian Fault (Turkey / Iran) — High Hazard": (2, 19, 610, 4800),
+        "San Andreas Fault (USA / Mexico) — High Hazard": (2, 14, 380, 2900),
+        "Mediterranean Belt (Italy / Greece) — Moderate Hazard": (2, 11, 290, 2100),
+        "Custom Location (Manual Region/District IDs)": (2, 17, 450, 3000)
     }
-
-    selected_zone = st.selectbox("Select Global Seismic Region", list(global_zones.keys()))
-    hazard_level, def_g1, def_g2, def_g3 = global_zones[selected_zone]
-
-    col1, col2 = st.columns(2)
-
-    with col1:
-        st.markdown('<div class="section-header">📍 Regional IDs & Seismic Load</div>', unsafe_allow_html=True)
-        geo1 = st.number_input("Region ID (Geo Level 1: 0–30)", min_value=0, max_value=30, value=def_g1)
-        geo2 = st.number_input("District ID (Geo Level 2: 0–1427)", min_value=0, max_value=1427, value=def_g2)
-        geo3 = st.number_input("Municipality ID (Geo Level 3: 0–12567)", min_value=0, max_value=12567, value=def_g3)
-        magnitude = st.slider("Expected Earthquake Magnitude (Mw)", min_value=4.5, max_value=9.0, value=6.8, step=0.1)
-
-        soil_options = {
-            "Soft Alluvial Soil / Liquefaction Zone (High Amplification)": 2,
-            "Stiff Sedimentary Soil (Moderate Amplification)": 1,
-            "Hard Bedrock / Basalt (Low Amplification)": 0,
-        }
-        selected_soil = st.selectbox("Local Ground / Soil Type", list(soil_options.keys()))
-
-    with col2:
-        st.markdown('<div class="section-header">🧱 Structural Materials & Dimensions</div>', unsafe_allow_html=True)
-        foundation_options = {
-            "Mud Mortar - Stone / Unreinforced Brick": 3,
-            "Bamboo / Timber Frame": 2,
-            "Cement Mortar - Brick / Masonry": 1,
-            "Reinforced Concrete (RCC / Seismic Design)": 0,
-        }
-        selected_foundation = st.selectbox("Foundation & Superstructure Type", list(foundation_options.keys()))
-
-        roof_options = {
-            "Heavy Timber / Mud / Tile Roof": 2,
-            "Light Metal Sheet / Bamboo Roof": 1,
-            "Reinforced Concrete (RCC) Slab": 0,
-        }
-        selected_roof = st.selectbox("Roof Construction Type", list(roof_options.keys()))
-
-        age = st.slider("Building Age (Years)", min_value=0, max_value=200, value=25)
-        floors = st.slider("Number of Floors", min_value=1, max_value=9, value=2)
-        area = st.slider("Footprint Area Percentage", min_value=1, max_value=100, value=8)
-        height = st.slider("Height Percentage", min_value=2, max_value=32, value=6)
-
-    st.write("")
+    haz, dg1, dg2, dg3 = zones[st.selectbox("Select Global Seismic Region", list(zones.keys()))]
+    c1, c2 = st.columns(2)
+    with c1:
+        st.markdown('<div class="sec">📍 Location & Seismic Load</div>', unsafe_allow_html=True)
+        g1 = st.number_input("Region ID (Geo 1: 0–30)", 0, 30, dg1)
+        g2 = st.number_input("District ID (Geo 2: 0–1427)", 0, 1427, dg2)
+        g3 = st.number_input("Municipality ID (Geo 3: 0–12567)", 0, 12567, dg3)
+        mag = st.slider("Earthquake Magnitude (Mw)", 4.5, 9.0, 6.8, 0.1)
+        soils = {"Soft Alluvial / Liquefaction Zone": 2, "Stiff Sedimentary Soil": 1, "Hard Bedrock / Basalt": 0}
+        soil = soils[st.selectbox("Ground / Soil Type", list(soils.keys()))]
+    with c2:
+        st.markdown('<div class="sec">🧱 Materials & Dimensions</div>', unsafe_allow_html=True)
+        fnds = {"Mud Mortar - Stone / Unreinforced Brick": 3, "Bamboo / Timber Frame": 2, "Cement Mortar - Brick": 1, "Reinforced Concrete (RCC)": 0}
+        fnd = fnds[st.selectbox("Foundation & Structure", list(fnds.keys()))]
+        roofs = {"Heavy Timber / Mud / Tile": 2, "Light Metal Sheet / Bamboo": 1, "Reinforced Concrete (RCC) Slab": 0}
+        roof = roofs[st.selectbox("Roof Type", list(roofs.keys()))]
+        age = st.slider("Building Age (Years)", 0, 200, 25)
+        flr = st.slider("Number of Floors", 1, 9, 2)
+        area = st.slider("Footprint Area %", 1, 100, 8)
+        ht = st.slider("Height %", 2, 32, 6)
 
     if st.button("Analyze Global Structural Risk"):
-        s_code = soil_options[selected_soil]
-        f_code = foundation_options[selected_foundation]
-        r_code = roof_options[selected_roof]
-
-        input_data = pd.DataFrame({
-            "geo_level_1_id": [geo1],
-            "geo_level_2_id": [geo2],
-            "geo_level_3_id": [geo3],
-            "zone_hazard": [hazard_level],
-            "magnitude": [magnitude],
-            "soil_code": [s_code],
-            "age": [age],
-            "area_percentage": [area],
-            "height_percentage": [height],
-            "count_floors_pre_eq": [floors],
-            "foundation_code": [f_code],
-            "roof_code": [r_code],
-        })
-
-        prediction = int(model.predict(input_data).item())
-        p1, p2, p3 = model.predict_proba(input_data).ravel()
-
-        if prediction == 1:
-            st.markdown(
-                '<div class="result-card grade-1">'
-                '<h3 style="margin:0;">🟢 Grade 1: Low Damage</h3>'
-                '<p style="margin:8px 0 0;">Minor hairline plaster cracks expected. Structure remains safe for occupancy and minor repair.</p>'
-                '</div>',
-                unsafe_allow_html=True,
-            )
-        elif prediction == 2:
-            st.markdown(
-                '<div class="result-card grade-2">'
-                '<h3 style="margin:0;">🟡 Grade 2: Medium Damage</h3>'
-                '<p style="margin:8px 0 0;">Moderate wall cracking and structural distress. Requires civil engineering inspection before re-entry.</p>'
-                '</div>',
-                unsafe_allow_html=True,
-            )
+        inp = pd.DataFrame([{"g1": g1, "g2": g2, "g3": g3, "haz": haz, "mag": mag, "soil": soil, "age": age, "area": area, "ht": ht, "flr": flr, "fnd": fnd, "roof": roof}])
+        pred = int(model.predict(inp)[0])
+        p1, p2, p3 = model.predict_proba(inp)[0]
+        if pred == 1:
+            st.markdown('<div class="card g1"><h3>🟢 Grade 1: Low Damage</h3><p>Minor hairline cracks expected. Safe for occupancy.</p></div>', unsafe_allow_html=True)
+        elif pred == 2:
+            st.markdown('<div class="card g2"><h3>🟡 Grade 2: Medium Damage</h3><p>Moderate structural distress. Engineering inspection required.</p></div>', unsafe_allow_html=True)
         else:
-            st.markdown(
-                '<div class="result-card grade-3">'
-                '<h3 style="margin:0;">🔴 Grade 3: Severe Damage</h3>'
-                '<p style="margin:8px 0 0;">Critical structural failure or collapse risk. Immediate evacuation and retrofitting/demolition required.</p>'
-                '</div>',
+            st.markdown('<div class="card g3"><h3>🔴 Grade 3: Severe Damage</h3><p>High collapse risk. Immediate evacuation required.</p></div>', unsafe_allow_html=True)
+        m1, m2, m3 = st.columns(3)
+        m1.metric("🟢 Low (Grade 1)", f"{p1*100:.1f}%")
+        m2.metric("🟡 Medium (Grade 2)", f"{p2*100:.1f}%")
+        m3.metric("🔴 Severe (Grade 3)", f"{p3*100:.1f}%")
+        st.bar_chart(pd.DataFrame({"Probability %": [p1*100, p2*100, p3*100]}, index=["Grade 1", "Grade 2", "Grade 3"]))
+
+with tab2:
+    st.markdown('<div class="sec">📡 Live Global Earthquakes (Past 7 Days — USGS)</div>', unsafe_allow_html=True)
+    qdf = get_quakes()
+    if not qdf.empty:
+        st.map(qdf[["lat", "lon"]])
+        st.dataframe(qdf[["Location", "Magnitude", "Depth (km)"]], use_container_width=True)
+    else:
+        st.info("USGS feed temporarily unavailable. Refresh to retry.")
+
+with tab3:
+    st.markdown('<div class="sec">📊 Feature Importance & Project Info</div>', unsafe_allow_html=True)
+    labels = ["Region ID", "District ID", "Municipality ID", "Seismic Hazard", "Magnitude", "Soil Type", "Age", "Area %", "Height %", "Floors", "Foundation", "Roof"]
+    st.bar_chart(pd.DataFrame({"Importance": model.feature_importances_}, index=labels).sort_values("Importance", ascending=False))
+    st.info("GlobalQuake AI combines 2015 Nepal Earthquake structural data with global seismic hazard zones, soil amplification, and material typologies.")
+# END OF FILE
