@@ -14,8 +14,8 @@ st.markdown("""<style>
     font-family: 'Segoe UI', sans-serif;
 }
 .hero {
-    background: linear-gradient(90deg, #1e3a8a, #0369a1, #0d9488),uri("https://images.unsplash.com/photo-1451187580459-43490279c0fa?fm=jpg&fit=crop&w=1920&q=80
-");
+    background: linear-gradient(90deg, #1e3a8a, #0369a1, #0d9488),url("https://images.unsplash.com/photo-1451187580459-43490279c0fa?fm=jpg&fit=crop&w=1920&q=80
+")
     padding: 24px;
     border-radius: 16px;
     text-align: center;
