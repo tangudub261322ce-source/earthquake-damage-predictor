@@ -131,3 +131,4 @@ def get_building_html(floors, roof_code, fnd_code, age, grade, default_mode="m7"
         f'{controls}'
         f'<div style="height:{box_h}px;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;overflow:hidden;background:linear-gradient(#1e293b,#0f172a);border-radius:10px;padding-bottom:8px;">'
         f'<div id="bldg" style="display:flex;flex-direction:column;align-items:center;transform-origin:bottom center;animation:{anim_init};">{roof_div}{floor_divs}</div>'
+    )
