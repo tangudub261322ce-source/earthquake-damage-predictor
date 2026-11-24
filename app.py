@@ -3,13 +3,15 @@ import numpy as np, pandas as pd, streamlit as st
 import streamlit.components.v1 as components
 from sklearn.ensemble import RandomForestClassifier
 
-st.set_page_config(page_title="GlobalQuake AI", page_icon="🌍", layout="centered")
+st.set_page_config(page_title="GlobalQuake AI | Seismic & Climate Risk", page_icon="🌍", layout="centered")
 
 with st.sidebar:
-    st.header("🎨 Customize & Socials")
-    up_bg = st.file_uploader("Upload Background Image", type=["png", "jpg", "jpeg"])
+    st.header("🎨 Customize Website")
+    up_bg = st.file_uploader("Upload Custom Background (.jpg/.png)", type=["png", "jpg", "jpeg"])
     def_bg = "https://unsplash.com"
     bg_src = f"data:{up_bg.type};base64,{base64.b64encode(up_bg.read()).decode()}" if up_bg else def_bg
+    st.markdown("---")
+    st.header("🔗 Follow Us & Contact")
     gh_url = st.text_input("GitHub URL", "https://github.com")
     tw_url = st.text_input("Twitter / X URL", "https://twitter.com")
     li_url = st.text_input("LinkedIn URL", "https://linkedin.com")
@@ -19,9 +21,9 @@ st.markdown(f"""<style>
 @keyframes entryQuake {{ 0%,100%{{transform:translate(0,0) rotate(0deg)}} 15%{{transform:translate(-9px,-4px) rotate(-1.2deg)}} 30%{{transform:translate(9px,4px) rotate(1.2deg)}} 45%{{transform:translate(-7px,3px) rotate(-0.9deg)}} 60%{{transform:translate(7px,-3px) rotate(0.9deg)}} 75%{{transform:translate(-4px,1px) rotate(-0.4deg)}} 90%{{transform:translate(4px,-1px) rotate(0.4deg)}} }}
 .stApp {{ background: linear-gradient(rgba(9,13,22,0.78), rgba(15,23,42,0.88)), url("{bg_src}"); background-size: cover; background-attachment: fixed; color: #f8fafc; }}
 .block-container {{ animation: entryQuake 3s ease-out 1; }}
+[data-testid="stVerticalBlockBorderWrapper"] {{ background: rgba(17,24,39,0.88); border-radius: 14px; box-shadow: 0 12px 28px rgba(0,0,0,0.75); border: 1px solid rgba(56,189,248,0.3); padding: 8px; }}
 .hero {{ background: linear-gradient(90deg, #1e3a8a, #0369a1, #0d9488); padding: 22px; border-radius: 16px; text-align: center; color: white; margin-bottom: 18px; box-shadow: 0 14px 32px rgba(0,0,0,0.8); }}
-.tile {{ background: rgba(17,24,39,0.88); padding: 16px; border-radius: 14px; box-shadow: 0 12px 28px rgba(0,0,0,0.75); border: 1px solid rgba(56,189,248,0.3); margin-bottom: 14px; }}
-div.stButton>button {{ width: 100%; background: linear-gradient(90deg, #f59e0b, #ea580c); color: white; border: none; padding: 12px; font-weight: bold; border-radius: 10px; box-shadow: 0 8px 20px rgba(234,88,12,0.5); }}
+div.stButton>button {{ width: 100%; background: linear-gradient(90deg, #f59e0b, #ea580c); color: white; border: none; padding: 14px; font-size: 1.1rem; font-weight: bold; border-radius: 10px; box-shadow: 0 8px 20px rgba(234,88,12,0.55); }}
 .g1 {{ background: #064e3b; border-left: 6px solid #10b981; padding: 16px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.7); }}
 .g2 {{ background: #78350f; border-left: 6px solid #f59e0b; padding: 16px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.7); }}
 .g3 {{ background: #7f1d1d; border-left: 6px solid #ef4444; padding: 16px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.7); }}
@@ -56,6 +58,18 @@ def get_place(name):
     except Exception:
         return None
 
+@st.cache_data(ttl=1800)
+def get_global_feed():
+    try:
+        data = json.loads(urllib.request.urlopen("https://usgs.gov", timeout=8).read().decode())
+        rows = []
+        for f in data.get("features", [])[:40]:
+            lon, lat, depth = f["geometry"]["coordinates"]
+            rows.append({"Location": f["properties"]["place"], "Magnitude": round(float(f["properties"]["mag"]), 1), "Depth (km)": round(float(depth), 1), "lat": float(lat), "lon": float(lon)})
+        return pd.DataFrame(rows)
+    except Exception:
+        return pd.DataFrame()
+
 def bldg_html(flr, roof, fnd, age, grade, mode="m7", compact=False):
     col = "#64748b" if fnd == 0 else ("#94a3b8" if fnd == 1 else ("#b45309" if fnd == 2 else "#78350f"))
     crk = '<div style="position:absolute;width:24px;height:2px;background:#ef4444;transform:rotate(25deg);"></div>' if (age > 35 or grade >= 2) else ""
@@ -76,23 +90,17 @@ def share_popup(place, glbl, mag, flr, roof, fnd, age, grade, note):
 model = load_model()
 st.markdown('<div class="hero"><h1 style="margin:0;">🌍 GlobalQuake AI: Worldwide Damage Predictor</h1><p style="margin:6px 0 0;">Live Global Climate, Seismic Risk & Building Simulator</p></div>', unsafe_allow_html=True)
 
-t1, t2 = st.tabs(["🔍 Worldwide Predictor & Simulator", "📊 Model Insights"])
-with t1:
-    st.markdown('<div class="tile">', unsafe_allow_html=True)
-    place = st.text_input("🌐 Enter Any City or Country in the World", "Kathmandu, Nepal")
-    p = get_place(place)
-    if p:
-        st.success(f"📍 {p['name']} ({p['lat']:.2f}, {p['lon']:.2f}) | 🌡️ {p['temp']}°C | 💧 {p['hum']}% | 🌧️ {p['rain']}mm | 🌋 Nearby Quakes: {p['eq']} (Max Mw {p['max']})")
-        haz, wet, dmag = p["haz"], min(1.0, p["hum"]/100.0), max(5.5, min(8.8, p["max"]))
-    else:
-        haz, wet, dmag = 3, 0.5, 6.8
-    c1, c2 = st.columns(2)
-    with c1:
-        g1 = st.number_input("Region ID (Geo 1)", 0, 30, 17)
-        g2 = st.number_input("District ID (Geo 2)", 0, 1427, 450)
-        g3 = st.number_input("Municipality ID (Geo 3)", 0, 12567, 3000)
-        mag = st.slider("Magnitude (Mw)", 4.5, 9.0, float(dmag), 0.1)
-        soil = {"Soft Alluvial Soil": 2, "Stiff Soil": 1, "Hard Bedrock": 0}[st.selectbox("Soil Type", ["Soft Alluvial Soil", "Stiff Soil", "Hard Bedrock"])]
-    with c2:
-        fnd = {"Mud Mortar - Stone/Brick": 3, "Bamboo/Timber": 2, "Cement/Brick": 1, "Reinforced Concrete (RCC)": 0}[st.selectbox("Foundation", ["Mud Mortar - Stone/Brick", "Bamboo/Timber", "Cement/Brick", "Reinforced Concrete (RCC)"])]
-        roof = {"Heavy Timber/Mud": 2, "Light Metal Sheet": 1, "RCC Slab": 0}[st.selectbox("Roof Type", ["Heavy Timber/Mud", "Light Metal Sheet", "RCC Slab"])]
+tab1, tab2, tab3 = st.tabs(["🔍 Worldwide Predictor & Simulator", "🌍 Global Seismic Feed", "📊 Model Insights & Info"])
+
+with tab1:
+    with st.container(border=True):
+        place = st.text_input("🌐 Enter Any City or Country in the World", "Kathmandu, Nepal")
+        p = get_place(place)
+        if p:
+            st.success(f"📍 {p['name']} ({p['lat']:.2f}, {p['lon']:.2f}) | 🌡️ {p['temp']}°C | 💧 {p['hum']}% | 🌧️ {p['rain']}mm | 🌋 Nearby Quakes: {p['eq']} (Max Mw {p['max']})")
+            haz, wet, dmag = p["haz"], min(1.0, p["hum"]/100.0), max(5.5, min(8.8, p["max"]))
+        else:
+            haz, wet, dmag = 3, 0.5, 6.8
+
+    with st.container(border=True):
+        c1, c2 = st.columns(2)
