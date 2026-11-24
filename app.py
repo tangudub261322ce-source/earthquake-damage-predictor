@@ -1,23 +1,27 @@
-import json, urllib.request, urllib.parse
+import base64, json, urllib.request, urllib.parse
 import numpy as np, pandas as pd, streamlit as st
 import streamlit.components.v1 as components
 from sklearn.ensemble import RandomForestClassifier
 
 st.set_page_config(page_title="GlobalQuake AI | Seismic & Climate Risk", page_icon="🌍", layout="centered")
 
-# Sidebar: Customize Background Image & Follow Us Links
+# Sidebar: Upload Custom Background & Edit Follow Us Links
 with st.sidebar:
     st.header("🎨 Customize Website")
-    bg_url = st.text_input(
-        "Background Image URL",
-        value="https://unsplash.com"
-    )
+    uploaded_bg = st.file_uploader("Upload Custom Background Image", type=["png", "jpg", "jpeg", "webp"])
+    default_bg = "https://unsplash.com"
+    if uploaded_bg is not None:
+        b64 = base64.b64encode(uploaded_bg.read()).decode()
+        bg_source = f"data:{uploaded_bg.type};base64,{b64}"
+    else:
+        bg_source = default_bg
+
     st.markdown("---")
     st.header("🔗 Follow Us & Contact Links")
     gh_url = st.text_input("GitHub URL", value="https://github.com")
     tw_url = st.text_input("Twitter / X URL", value="https://twitter.com")
     li_url = st.text_input("LinkedIn URL", value="https://linkedin.com")
-    email_addr = st.text_input("Contact Email", value="contact@globalquake-ai.com")
+    email_addr = st.text_input("Contact Email", value="tangudub261322ce@nitc.ac.in")
 
 # 1. CSS: 3-Second Entry Earthquake Animation, Custom Background & Tile Shadows
 css = (
@@ -34,8 +38,8 @@ css = (
     " 80% { transform: translate(4px, -1px) rotate(0.4deg); }"
     " 90% { transform: translate(-2px, 0px) rotate(-0.2deg); }"
     "}"
-    f".stApp {{ background: linear-gradient(rgba(9,13,22,0.82), rgba(15,23,42,0.90)), url('{bg_url}'); background-size: cover; background-attachment: fixed; background-position: center; color: #f8fafc; font-family: 'Segoe UI', sans-serif; }}"
-    ".main .block-container { animation: entryQuake 3s ease-out 1; }"
+    f'.stApp {{ background: linear-gradient(rgba(9,13,22,0.82), rgba(15,23,42,0.90)), url("{bg_source}"); background-size: cover; background-attachment: fixed; background-position: center; color: #f8fafc; font-family: "Segoe UI", sans-serif; }}'
+    '[data-testid="stMainBlockContainer"] { animation: entryQuake 3s ease-out 1; }'
     ".hero { background: linear-gradient(90deg, rgba(30,58,138,0.92), rgba(3,105,161,0.92), rgba(13,148,136,0.92)); padding: 24px; border-radius: 16px; text-align: center; color: white; margin-bottom: 18px; box-shadow: 0 14px 32px rgba(0,0,0,0.7); border: 1px solid rgba(255,255,255,0.18); }"
     ".hero h1 { margin: 0; font-size: 1.95rem; font-weight: 800; }"
     ".tile { background: rgba(17,24,39,0.88); padding: 18px; border-radius: 14px; box-shadow: 0 12px 28px rgba(0,0,0,0.65); border: 1px solid rgba(56,189,248,0.28); margin-bottom: 16px; }"
@@ -129,6 +133,3 @@ def get_building_html(floors, roof_code, fnd_code, age, grade, default_mode="m7"
         f'<div style="background:#0f172a;padding:14px;border-radius:14px;border:1px solid #334155;color:white;font-family:sans-serif;text-align:center;box-shadow:0 10px 25px rgba(0,0,0,0.6);">'
         f'<div style="font-weight:700;color:#38bdf8;margin-bottom:8px;">🏗️ Custom Building Seismic Animation ({floors} Floors | Grade {grade})</div>'
         f'{controls}'
-        f'<div style="height:{box_h}px;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;overflow:hidden;background:linear-gradient(#1e293b,#0f172a);border-radius:10px;padding-bottom:8px;">'
-        f'<div id="bldg" style="display:flex;flex-direction:column;align-items:center;transform-origin:bottom center;animation:{anim_init};">{roof_div}{floor_divs}</div>'
-    )
